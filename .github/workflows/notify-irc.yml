@@ -1,15 +1,16 @@
 on:
   workflow_call:
     inputs:
-      irc_user:
+      nickname:
         type: string
-        required: true
-      irc_pass:
-        type: secret
         required: true
       channel:
         type: string
         required: true
+    secrets:
+      password:
+        required: true
+
 
 jobs:
   send:
@@ -21,11 +22,12 @@ jobs:
         if: github.event_name == 'push'
         with:
           channel: ${{ inputs.channel }}
-          nickname: ${{ inputs.irc_user }}
-          sasl_password: ${{ inputs.irc_pass }}
+          nickname: ${{ inputs.nickname }}
+          sasl_password: ${{ secrets.password }}
           message: |-
             ${{ github.actor }} pushed ${{ github.event.repository.name }}:${{ github.ref_name || github.event.ref }} -- ${{ github.event.compare }}
             ${{ join(github.event.commits.*.message, '
             ') }}
+
 
 # End of file.

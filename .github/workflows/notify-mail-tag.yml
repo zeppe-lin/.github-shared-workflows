@@ -1,14 +1,13 @@
 on:
   workflow_call:
     inputs:
-      smtp_user:
-        type: string
-        required: true
-      smtp_pass:
-        type: secret
-        required: true
       mail_to:
         type: string
+        required: true
+    secrets:
+      smtp_user:
+        required: true
+      smtp_pass:
         required: true
 
 jobs:
@@ -47,10 +46,10 @@ jobs:
           server_address: smtp.gmail.com
           server_port: 465
           secure: true
-          username: ${{ inputs.smtp_user }}
-          password: ${{ inputs.smtp_pass }}
+          username: ${{ secrets.smtp_user }}
+          password: ${{ secrets.smtp_pass }}
 
-          from: ${{ inputs.smtp_user }}
+          from: ${{ secrets.smtp_user }}
           to:   ${{ inputs.mail_to }}
 
           subject: "[${{ github.event.repository.name }}:${{ github.ref_name || github.event.ref }}] ${{ steps.info.outputs.short_sha }}: ${{ steps.info.outputs.commit_title }}"
