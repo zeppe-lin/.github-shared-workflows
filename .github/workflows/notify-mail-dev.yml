@@ -1,0 +1,63 @@
+on:
+  workflow_call:
+    inputs:
+      smtp_user:
+        type: string
+        required: true
+      smtp_pass:
+        type: secret
+        required: true
+      mail_to:
+        type: string
+        required: true
+
+jobs:
+  send:
+    runs-on: ubuntu-latest
+
+    strategy:
+      matrix:
+        commit: ${{ github.event.commits }}
+
+    steps:
+      - name: Checkout full history
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+
+      - name: Extract commit info
+        id: info
+        run: |
+          sha=${{ matrix.commit.id }}
+          short=${sha:0:7}
+          title=$(printf '%s\n' "${{ matrix.commit.message }}" | head -n1)
+
+          diffstat=$(git show --stat "$sha")
+
+          echo "short_sha=$short"            >> $GITHUB_OUTPUT
+          echo "commit_title=$title"         >> $GITHUB_OUTPUT
+
+          echo "commit_body<<EOF"            >> $GITHUB_OUTPUT
+          echo "$diffstat"                   >> $GITHUB_OUTPUT
+          echo "EOF"                         >> $GITHUB_OUTPUT
+
+      - name: Send email
+        uses: dawidd6/action-send-mail@v6
+        with:
+          server_address: smtp.gmail.com
+          server_port: 465
+          secure: true
+          username: ${{ inputs.smtp_user }}
+          password: ${{ inputs.smtp_pass }}
+
+          from: ${{ inputs.smtp_user }}
+          to:   ${{ inputs.mail_to }}
+
+          subject: "[${{ github.event.repository.name }}:${{ github.ref_name || github.event.ref }}] ${{ steps.info.outputs.short_sha }}: ${{ steps.info.outputs.commit_title }}"
+
+          body: |
+            ${{ steps.info.outputs.commit_body }}
+
+            https://github.com/${{ github.repository }}/commit/${{ matrix.commit.id }}
+
+# End of file.
