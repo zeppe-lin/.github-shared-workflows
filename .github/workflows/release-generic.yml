@@ -1,0 +1,66 @@
+name: Release
+
+on:
+  workflow_call:
+    inputs:
+      artifact_path:
+        description: "Path(s) to artifact(s) to attach (glob allowed)"
+        required: false
+        default: ""
+        type: string
+      prerelease:
+        description: "Mark release as prerelease"
+        required: false
+        default: "false"
+        type: string
+      release_name:
+        description: "Override release name (defaults to tag)"
+        required: false
+        default: ""
+        type: string
+    secrets:
+      github_token:
+        required: true
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+
+      - name: Verify tag context
+        run: |
+          if [ -z "${GITHUB_REF_NAME}" ]; then
+            echo "Error: no tag context found (expected push of a tag)"
+            exit 1
+          fi
+          echo "Building release for tag ${GITHUB_REF_NAME}"
+
+      - name: Generate changelog
+        run: |
+          # Find previous tag safely
+          prev_tag=$(git describe --tags --abbrev=0 "$(git rev-list --tags --skip=1 --max-count=1)" 2>/dev/null || true)
+          if [ -z "$prev_tag" ]; then
+            echo "No previous tag found, generating full log"
+            git log --no-merges --pretty=format:'- %h %s (%an)' > CHANGELOG-${GITHUB_REF_NAME}.md
+          else
+            echo "Generating changelog from $prev_tag to ${GITHUB_REF_NAME}"
+            git log --no-merges --pretty=format:'- %h %s (%an)' $prev_tag..${GITHUB_REF_NAME} > CHANGELOG-${GITHUB_REF_NAME}.md
+          fi
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: ${{ github.ref_name }}
+          name: ${{ inputs.release_name || format('Release {0}', github.ref_name) }}
+          draft: false
+          prerelease: ${{ inputs.prerelease }}
+          body_path: CHANGELOG-${{ github.ref_name }}.md
+          files: ${{ inputs.artifact_path }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.github_token }}
+
