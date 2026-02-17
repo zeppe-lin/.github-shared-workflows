@@ -15,6 +15,9 @@ on:
 jobs:
   send:
     runs-on: ubuntu-latest
+    concurrency:
+      group: irc-${{ github.ref }}
+      cancel-in-progress: false
 
     steps:
       - name: Send message
